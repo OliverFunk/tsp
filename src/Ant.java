@@ -44,11 +44,7 @@ public class Ant {
         this.nextNode = nextNode;
     }
 
-    public void moveToNextNode() throws NullPointerException {
-        if (nextNode == null) {
-            throw new NullPointerException();
-        }
-
+    public void moveToNextNode(){
         distanceTravelled += currentNode.getDistBetweeNodes(nextNode);
         
         currentNode = nextNode;
@@ -59,7 +55,7 @@ public class Ant {
 
     @Override
     public String toString() {
-        if (visited.getFirst().equals(visited.getLast())) {
+        if (!visited.getFirst().equals(visited.getLast())) {
             return "There was a problem with this ant's tour, the beginning and end nodes are not the same!";
         }
 

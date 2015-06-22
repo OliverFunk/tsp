@@ -35,4 +35,8 @@ public class Edge {
     public void setPheremoneLevel(float pheremoneLevel) {
         this.pheremoneLevel = pheremoneLevel;
     }
+    
+    public void incrementPheremoneLevel(float deltaPheremoneLevel){
+        this.pheremoneLevel += deltaPheremoneLevel;
+    }
 }

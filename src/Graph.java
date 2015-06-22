@@ -1,8 +1,9 @@
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -18,26 +19,52 @@ public class Graph {
     private final Random rand;
 
     private Tour globalBestTour;
-    private List<Tour> previousTours;
+    private final List<Tour> previousTours;
 
     //ACO parameters
-    private int RHI; //Relative Heueristic Importace
-    private int RPI; //Relative Pheremone Imporance
-    private int PDR; //Phermone Degration Rate (0,1]
-    private float SPP; //Standard Pheremone Placement ammout
-    private int TDC; //Tour Distance Cutoff value for tours a TDCth bigger than the global best tour
-    private float ECV; //Exploration Choice Value (0,1]
-    private int numberOfAntPerIteration;
-    private int numberOfIterations;
+    private final int RHI; //Relative Heueristic Importance >0
+    private final int RPI; //Relative Pheremone Importance >0
+    private final float PDR; //Phermone Degration Rate (0,1]
+    private final float SPP; //Standard Pheremone Placement ammout 
+    private final int TDC; //Tour Distance Cutoff value for tours a TDCth bigger than the global best tour >=1
+    private final float ECV; //Exploration Choice Value (0,1]
+    private final int API; //Ants Per Iteration >=1
+    private final int ITT; //Total Iterations >=1
 
-    public Graph() {
+    public Graph(int relativeHeueristicImportance, int relativePheremoneImportance,
+            float phermoneDegrationRate, int tourDistanceCutoff,
+            float explorationChoiceValue, int numberOfAntPerIteration,
+            int numberOfIterations) throws IOException {
+
         this.graph = new HashMap<>();
         rand = new Random();
 
-        globalBestTour = new Tour(null, Integer.MAX_VALUE);
+        //Populate the graph with ndoes
+        IOUtils.loadNodesIntoGraph(this, "nodes.txt");
+
+        Tour firstTour = generateFirstTour();
+
+        globalBestTour = firstTour;
         previousTours = new ArrayList<>();
 
         //Set ACO params and check they are valid
+        boolean valid = true;
+        this.RHI = relativeHeueristicImportance;
+        valid = this.RHI > 0;
+        this.RPI = relativePheremoneImportance;
+        valid = this.RPI > 0;
+        this.PDR = phermoneDegrationRate;
+        valid = this.PDR > 0 && this.PDR <= 1;
+        this.TDC = tourDistanceCutoff;
+        valid = this.TDC >= 1;
+        this.ECV = explorationChoiceValue;
+        valid = this.ECV > 0 && this.ECV <= 1;
+        this.API = numberOfAntPerIteration;
+        valid = this.API > 0;
+        this.ITT = numberOfIterations;
+        valid = this.ITT > 0;
+
+        this.SPP = graph.size() * ((float) 1 / firstTour.getTourDistance());
     }
 
     public Map<String, Node> getGraph() {
@@ -72,13 +99,43 @@ public class Graph {
         Nj.linkNode(Ni, distFromIToJ);
     }
 
-    public void startACO() {
-        List<Ant> ants = new ArrayList<>();
+    private Tour generateFirstTour() {
+        //Construct a tour of closest neightbours
+        Node n = new ArrayList<>(graph.values()).get(0);
+        Ant a = new Ant(n);
+
+        do {
+            Node next = null;
+            int dist = Integer.MAX_VALUE;
+
+            //Set the next node equal to the node's closest neighbour
+            for (Node linkedNode : n.getLinkedNodes().keySet()) {
+                if (!a.getVisited().contains(linkedNode)) {
+                    if (n.getDistBetweeNodes(linkedNode) < dist) {
+                        dist = n.getDistBetweeNodes(linkedNode);
+                        next = linkedNode;
+                    }
+                }
+            }
+
+            a.setNextNode(next);
+            a.moveToNextNode();
+        } while (a.getVisited().size() != graph.size());
+
+        //Return to Beginning
+        a.setNextNode(a.getVisited().getFirst());
+        a.moveToNextNode();
+
+        return new Tour(a.getVisited(), a.getDistanceTravelled());
+    }
+
+    public Tour startACO() {
         List<Node> nodeList = new ArrayList<>(graph.values());
 
-        for (int interNo = 0; interNo < numberOfIterations; interNo++) {
+        for (int interNo = 0; interNo < ITT; interNo++) {
             //Place ants on random nodes
-            for (int i = 0; i < numberOfAntPerIteration; i++) {
+            List<Ant> ants = new ArrayList<>();
+            for (int i = 0; i < API; i++) {
                 int randomIndex = rand.nextInt(nodeList.size());
                 Node randomNode = nodeList.get(randomIndex);
 
@@ -88,6 +145,8 @@ public class Graph {
             //Begin ACO on the graph
             doACO(ants);
         }
+
+        return globalBestTour;
     }
 
     public void doACO(List<Ant> ants) {
@@ -97,7 +156,7 @@ public class Graph {
                 a.setNextNode(chooseNextNode(a));
                 localUpdate(a);
                 a.moveToNextNode();
-            } while (a.getVisited().size() == graph.size() + 1);
+            } while (a.getVisited().size() != graph.size() + 1);
 
             //Ant has completed its tour, 
             Tour completedTour = new Tour(a.getVisited(), a.getDistanceTravelled());
@@ -109,16 +168,16 @@ public class Graph {
             } else if (completedTour.getTourDistance() == globalBestTour.getTourDistance()) {
                 //If the tour was the same distance as the GB, increase the phermeone levels of the tour
                 //e*1/Lgb where e is the numer of times the tour was completed by an ant
-                
+
             } else if (completedTour.getTourDistance() >= Math.ceil(globalBestTour.getTourDistance() * (1 / TDC))) {
                 //If the complted tour distance was a TDCth bigger than the glboalBest, reduce it's pheremone levels
-                
+
             }
 
             //add the tour to the list of previous tours
             previousTours.add(completedTour);
         }
-        
+
         //Run the global update method on the, so far, global best tour
         globalUpdate(globalBestTour);
     }
@@ -131,18 +190,30 @@ public class Graph {
 
         Map<Node, Edge> nodesLinkedToCurrentNode = a.getCurrentNode().getLinkedNodes();
 
-        TreeMap<Node, Double> probabilitiesForNodes = new TreeMap<>();
+        TreeMap<Double, Node> probabilitiesForNodes = new TreeMap<>();
         double totalProb = 0d;
 
         for (Node n : graph.values()) {
             if (!a.getVisited().contains(n)) {
+                //For each node that has not yet been visited
+                //calulate it's weighted probabily
                 double weightedProbability
                         = (Math.pow(nodesLinkedToCurrentNode.get(n).getPheremoneLevel(), RPI))
                         * (Math.pow((double) 1 / nodesLinkedToCurrentNode.get(n).getDistance(), RHI));
-
                 totalProb += weightedProbability;
-                probabilitiesForNodes.put(n, weightedProbability);
+
+                //Map the node to its probability
+                probabilitiesForNodes.put(weightedProbability, n);
             }
+        }
+
+        double testTotalProb = 0d;//TODO: remove
+        for (Double d : probabilitiesForNodes.keySet()) {
+            testTotalProb += d;
+        }
+        if (testTotalProb != totalProb) {
+            System.out.println("Hmm????");
+            totalProb = testTotalProb;
         }
 
         Node nodeToReturn = null;
@@ -150,22 +221,28 @@ public class Graph {
             //Exploration:
             //Choose the node with the best known weighted probabillity
 
-            nodeToReturn = probabilitiesForNodes.lastKey();
+            nodeToReturn = probabilitiesForNodes.lastEntry().getValue();
+
         } else {
             //Biased Exploration
             //Randomly choose the next node based on the weighted probabilities
             //of the avilable nodes
 
             double r = rand.nextDouble();
-            double cumlitiveProb = 0d;
+            double cumulitiveProb = 0d;
 
-            for (Node n : probabilitiesForNodes.keySet()) {
-                cumlitiveProb += probabilitiesForNodes.get(n) / totalProb;
-                if (cumlitiveProb >= r) {
-                    nodeToReturn = n;
+            for (Double d : probabilitiesForNodes.keySet()) {
+                cumulitiveProb += d / totalProb;//For some reason the total isn't correct, unless set :????
+                if (cumulitiveProb >= r) {
+                    nodeToReturn = probabilitiesForNodes.get(d);
                     break;
                 }
             }
+        }
+
+        if (nodeToReturn == null) {//TODO: remove
+            System.out.println("No next node set! Exiting...");
+            System.exit(1);
         }
 
         return nodeToReturn;
@@ -177,6 +254,18 @@ public class Graph {
     }
 
     private void globalUpdate(Tour t) {
-        
+        Node curNode = null;
+        for (Iterator<Node> i = t.getNodesInTour().iterator(); i.hasNext();) {
+            if (curNode == null) {
+                curNode = i.next();
+            }
+            Node folNode = i.next();
+
+            //Update the phermeone level on each edge of the tour
+            Edge e = curNode.getEdgeBetweenNodes(folNode);
+            e.setPheremoneLevel((1 - PDR) * curNode.getPhermoneLevelBetweenNodes(folNode) + PDR * ((float) 1 / t.getTourDistance()));
+
+            curNode = folNode;
+        }
     }
 }

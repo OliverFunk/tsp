@@ -9,8 +9,8 @@ import java.util.Map;
  */
 public class Node {
 
-    private String name;
-    private Map<Node, Edge> linkedNodes;
+    private final String name;
+    private final Map<Node, Edge> linkedNodes;
 
     public Node(String name) {
         this.name = name;
