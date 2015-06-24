@@ -52,9 +52,25 @@ public class Ant {
 
         visited.add(currentNode);
     }
+    
+    public void moveBackwards(){
+        //Remove the last node from the linked list
+        
+        //If there is only one node left, you can't move backwards.
+        if(visited.size() == 1){
+            return;
+        }
+        Node lastNode = visited.pollLast();
+        
+        //Set the current to the now current last node
+        currentNode = visited.getLast();
+        
+        //Subtract the distance between the two from the distance travelled
+        distanceTravelled-= currentNode.getDistBetweeNodes(lastNode);
+    }
 
     @Override
-    public String toString() {
+    public String toString() {//TODO: probably remove
         if (!visited.getFirst().equals(visited.getLast())) {
             return "There was a problem with this ant's tour, the beginning and end nodes are not the same!";
         }

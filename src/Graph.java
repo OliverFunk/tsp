@@ -2,6 +2,7 @@
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -19,7 +20,10 @@ public class Graph {
     private final Random rand;
 
     private Tour globalBestTour;
+    private int globalBestTourSurvival;
     private final List<Tour> previousTours;
+
+    private Tour bestByBruteForce;
 
     //ACO parameters
     private final int RHI; //Relative Heueristic Importance >0
@@ -34,17 +38,18 @@ public class Graph {
     public Graph(int relativeHeueristicImportance, int relativePheremoneImportance,
             float phermoneDegrationRate, int tourDistanceCutoff,
             float explorationChoiceValue, int numberOfAntPerIteration,
-            int numberOfIterations) throws IOException {
+            int numberOfIterations) {
 
         this.graph = new HashMap<>();
         rand = new Random();
 
         //Populate the graph with ndoes
-        IOUtils.loadNodesIntoGraph(this, "nodes.txt");
+        FileUtils.loadNodesIntoGraph(this, "nodes0.txt");
 
         Tour firstTour = generateFirstTour();
 
         globalBestTour = firstTour;
+        globalBestTourSurvival = 0;
         previousTours = new ArrayList<>();
 
         //Set ACO params and check they are valid
@@ -65,6 +70,13 @@ public class Graph {
         valid = this.ITT > 0;
 
         this.SPP = graph.size() * ((float) 1 / firstTour.getTourDistance());
+
+        this.bestByBruteForce = firstTour;
+        System.out.println("First tour: " + firstTour);
+    }
+
+    public int getGlobalBestTourSurvival() {
+        return globalBestTourSurvival;
     }
 
     public Map<String, Node> getGraph() {
@@ -129,6 +141,51 @@ public class Graph {
         return new Tour(a.getVisited(), a.getDistanceTravelled());
     }
 
+    public Tour getBestByBruteForce() {
+        //Get the best tour through a brute force approach
+        Node n = new ArrayList<>(graph.values()).get(0);
+        Ant a = new Ant(n);
+
+        bestByBruteForce(a);
+
+        return bestByBruteForce;
+    }
+
+    private void bestByBruteForce(Ant a) {
+        //Two path terminating special cases (basically, if the path has covered all nodes expect the target)
+        if (a.getVisited().size() == graph.size()) {
+
+            //Set the ant's next node to the beginning node and move there
+            a.setNextNode(a.getVisited().getFirst());
+            a.moveToNextNode();
+
+            //Ant has completed its tour, 
+            Tour completedTour = new Tour(a.getVisited(), a.getDistanceTravelled());
+
+            //Check if the tour is the new global best
+            if (completedTour.getTourDistance() < bestByBruteForce.getTourDistance()) {
+                //Set the shorest path to this path if the total path distance is less
+                bestByBruteForce = completedTour;
+            }
+
+            a.moveBackwards();
+        } else {
+            for (Node linkedNode : a.getCurrentNode().getLinkedNodes().keySet()) {
+                //For each linked node that has not already been visited and that is not the target
+                if (!a.getVisited().contains(linkedNode)) {
+                    //Only move onto the next node if there is a chance of the path being smaller
+                    if (a.getDistanceTravelled() + a.getCurrentNode().getDistBetweeNodes(linkedNode) < bestByBruteForce.getTourDistance()) {
+                        a.setNextNode(linkedNode);
+                        a.moveToNextNode();
+                        bestByBruteForce(a);
+                    }
+                }
+            }
+        }
+
+        a.moveBackwards();
+    }
+
     public Tour startACO() {
         List<Node> nodeList = new ArrayList<>(graph.values());
 
@@ -142,7 +199,7 @@ public class Graph {
                 ants.add(new Ant(randomNode));
             }
 
-            //Begin ACO on the graph
+            //Do ACO on the graph using the given ants
             doACO(ants);
         }
 
@@ -165,15 +222,21 @@ public class Graph {
             if (completedTour.getTourDistance() < globalBestTour.getTourDistance()) {
                 //If so, set it as the new global best
                 globalBestTour = completedTour;
-            } else if (completedTour.getTourDistance() == globalBestTour.getTourDistance()) {
-                //If the tour was the same distance as the GB, increase the phermeone levels of the tour
-                //e*1/Lgb where e is the numer of times the tour was completed by an ant
-
-            } else if (completedTour.getTourDistance() >= Math.ceil(globalBestTour.getTourDistance() * (1 / TDC))) {
-                //If the complted tour distance was a TDCth bigger than the glboalBest, reduce it's pheremone levels
-
+                globalBestTourSurvival = 1;
+            } else {
+                //The globalBestTour survived
+                globalBestTourSurvival++;
             }
 
+//            else if (completedTour.getTourDistance() == globalBestTour.getTourDistance()) {
+//                //If the tour was the same distance as the GB, increase the phermeone levels of the tour
+//                //e*1/Lgb where e is the numer of times the tour was completed by an ant
+//
+//            } 
+//            else if (completedTour.getTourDistance() >= Math.ceil(globalBestTour.getTourDistance() * (1 / TDC))) {
+//                //If the complted tour distance was a TDCth bigger than the glboalBest, reduce it's pheremone levels
+//
+//            }
             //add the tour to the list of previous tours
             previousTours.add(completedTour);
         }
@@ -212,7 +275,7 @@ public class Graph {
             testTotalProb += d;
         }
         if (testTotalProb != totalProb) {
-            System.out.println("Hmm????");
+//            System.out.println("Hmm????");
             totalProb = testTotalProb;
         }
 
