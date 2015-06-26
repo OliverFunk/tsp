@@ -1,8 +1,6 @@
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -21,6 +19,7 @@ public class Graph {
 
     private Tour globalBestTour;
     private int globalBestTourSurvival;
+    private int timesBestWasChosen;
     private final List<Tour> previousTours;
 
     private Tour bestByBruteForce;
@@ -41,16 +40,17 @@ public class Graph {
             int numberOfIterations) {
 
         this.graph = new HashMap<>();
-        rand = new Random();
+        this.rand = new Random();
 
         //Populate the graph with ndoes
         FileUtils.loadNodesIntoGraph(this, "nodes0.txt");
 
         Tour firstTour = generateFirstTour();
 
-        globalBestTour = firstTour;
-        globalBestTourSurvival = 0;
-        previousTours = new ArrayList<>();
+        this.globalBestTour = firstTour;
+        this.globalBestTourSurvival = 0;
+        this.timesBestWasChosen = 1;
+        this.previousTours = new ArrayList<>();
 
         //Set ACO params and check they are valid
         boolean valid = true;
@@ -79,6 +79,10 @@ public class Graph {
         return globalBestTourSurvival;
     }
 
+    public int getTimesBestWasChosen() {
+        return timesBestWasChosen;
+    }
+    
     public Map<String, Node> getGraph() {
         return Collections.unmodifiableMap(graph);
     }
@@ -207,6 +211,54 @@ public class Graph {
     }
 
     public void doACO(List<Ant> ants) {
+        ants.stream()
+                //Construct solutions
+                .map((a) -> {
+                    do {
+                        a.setNextNode(chooseNextNode(a));
+                        localUpdate(a);
+                        a.moveToNextNode();
+                    } while (a.getVisited().size() != graph.size() + 1);
+
+                    return a;
+                })
+                //Ant has completed its tour, create a Tour object
+                .map((a) -> new Tour(a.getVisited(), a.getDistanceTravelled()))
+                //Do things with the completed tour
+                .map((completedTour) -> {
+
+                    //Check if the tour is the new global best
+                    if (completedTour.getTourDistance() < globalBestTour.getTourDistance()) {
+                        //If so, set it as the new global best
+                        globalBestTour = completedTour;
+                        globalBestTourSurvival = 1;
+                        timesBestWasChosen = 1;
+                    } else {
+                        //The globalBestTour survived
+                        globalBestTourSurvival++;
+                    }
+
+                    if (completedTour.getTourDistance() == globalBestTour.getTourDistance()) {
+                        //If the tour was the same distance as the GB, increase the phermeone levels of the tour
+                        //e*1/Lgb where e is the numer of times the global best tour was completed by an ant
+
+                        timesBestWasChosen++;
+                    } else if (completedTour.getTourDistance() >= Math.ceil(globalBestTour.getTourDistance() * (1 / TDC))) {
+                        //If the completed tour distance was a TDCth bigger than the glboalBest, reduce it's pheremone levels
+                        globalReduction(completedTour);
+                    }
+                    return completedTour;
+                })
+                //add the tour to the list of previous tours
+                .forEach((completedTour) -> {
+                    previousTours.add(completedTour);
+                });
+
+        //Run the global update method on the, so far, global best tour
+        globalUpdate(globalBestTour);
+    }
+
+    public void doACOpreJava8(List<Ant> ants) {
         //Construct solutions
         for (Ant a : ants) {
             do {
@@ -228,15 +280,6 @@ public class Graph {
                 globalBestTourSurvival++;
             }
 
-//            else if (completedTour.getTourDistance() == globalBestTour.getTourDistance()) {
-//                //If the tour was the same distance as the GB, increase the phermeone levels of the tour
-//                //e*1/Lgb where e is the numer of times the tour was completed by an ant
-//
-//            } 
-//            else if (completedTour.getTourDistance() >= Math.ceil(globalBestTour.getTourDistance() * (1 / TDC))) {
-//                //If the complted tour distance was a TDCth bigger than the glboalBest, reduce it's pheremone levels
-//
-//            }
             //add the tour to the list of previous tours
             previousTours.add(completedTour);
         }
@@ -326,7 +369,23 @@ public class Graph {
 
             //Update the phermeone level on each edge of the tour
             Edge e = curNode.getEdgeBetweenNodes(folNode);
-            e.setPheremoneLevel((1 - PDR) * curNode.getPhermoneLevelBetweenNodes(folNode) + PDR * ((float) 1 / t.getTourDistance()));
+            e.setPheremoneLevel((1 - PDR) * curNode.getPhermoneLevelBetweenNodes(folNode) + timesBestWasChosen * PDR * ((float) 1 / t.getTourDistance()));
+
+            curNode = folNode;
+        }
+    }
+
+    private void globalReduction(Tour t) {
+        Node curNode = null;
+        for (Iterator<Node> i = t.getNodesInTour().iterator(); i.hasNext();) {
+            if (curNode == null) {
+                curNode = i.next();
+            }
+            Node folNode = i.next();
+
+            //Update the phermeone level on each edge of the tour
+            Edge e = curNode.getEdgeBetweenNodes(folNode);
+            e.setPheremoneLevel((1 - PDR) * curNode.getPhermoneLevelBetweenNodes(folNode) + PDR * ((float) 1 / (t.getTourDistance()) + (t.getTourDistance() - globalBestTour.getTourDistance())));
 
             curNode = folNode;
         }
