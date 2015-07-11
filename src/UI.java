@@ -43,6 +43,7 @@ public class UI {
             }
             if (sc.next().toUpperCase().charAt(0) == 'Y') {
                 if (g.getGraph().size() >= 16) {
+                    
                     System.out.println("Are you sure you want to run the brute force method on this graph? [Y/N");
                     System.out.println("There are more than 15 nodes so it may take a very long time to complete");
                     while (!sc.hasNext("[ynYN]")) {
