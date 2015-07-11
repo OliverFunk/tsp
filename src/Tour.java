@@ -8,7 +8,7 @@ import static java.util.stream.Collectors.joining;
  * @author Oliver Funk
  */
 public class Tour {
-    
+
     private final Deque<Node> nodesInTour;
     private final int tourDistance;
 
@@ -24,19 +24,19 @@ public class Tour {
     public int getTourDistance() {
         return tourDistance;
     }
-    
-        @Override
+
+    @Override
     public String toString() {
         if (!nodesInTour.getFirst().equals(nodesInTour.getLast())) {
             return "There was a problem with this tour, the beginning and end nodes are not the same!";
         }
-        
-        String out="";
-        out += nodesInTour.stream()
-                .map((b) -> b.getName())
-                .collect(joining("->"));
+
+        String out = "";
+        for (Node i : nodesInTour) {
+            out += out.isEmpty() ? i.getName() : "," + i.getName();
+        }
         out += ": " + tourDistance;
-        
+
         return out;
     }
 }

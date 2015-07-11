@@ -210,7 +210,7 @@ public class Graph {
         return globalBestTour;
     }
 
-//    public void doACO(List<Ant> ants) {
+//    public void doACOJava8(List<Ant> ants) {
 //        ants.stream()
 //                //Construct solutions
 //                .map((a) -> {
@@ -257,6 +257,7 @@ public class Graph {
 //        //Run the global update method on the, so far, global best tour
 //        globalUpdate(globalBestTour);
 //    }
+    
     private void doACO(List<Ant> ants) {
         //Construct solutions
         for (Ant a : ants) {
@@ -322,12 +323,12 @@ public class Graph {
             }
         }
 
-        double testTotalProb = 0d;//TODO: remove
+        double testTotalProb = 0d;
         for (Double d : probabilitiesForNodes.keySet()) {
             testTotalProb += d;
         }
         if (testTotalProb != totalProb) {
-//            System.out.println("Why?");
+            System.out.println("Why?");
             totalProb = testTotalProb;
         }
 
