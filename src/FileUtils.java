@@ -43,7 +43,8 @@ public class FileUtils {
         }
     }
 
-    public static void genNewFile(int numberOfNodes, int distanceRange, String filename) {
+    public static void genNewNodeFile(int numberOfNodes, int distanceRange) {
+        String filename = "nodes0.txt";
         File f = new File(filename);
 
         if (f.exists()) {

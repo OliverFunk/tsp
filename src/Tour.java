@@ -30,11 +30,10 @@ public class Tour {
         if (!nodesInTour.getFirst().equals(nodesInTour.getLast())) {
             return "There was a problem with this tour, the beginning and end nodes are not the same!";
         }
-
-        String out = "Ant's Tour: ";
         
+        String out="";
         out += nodesInTour.stream()
-                .map((n) -> n.getName())
+                .map((b) -> b.getName())
                 .collect(joining("->"));
         out += ": " + tourDistance;
         
