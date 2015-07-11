@@ -29,9 +29,14 @@ public class UI {
                     System.out.println("Please enter the number of nodes you would like (whole numbers only):");
                     sc.next();
                 }
+                int nodes = sc.nextInt();
+                
+                if(nodes >= 300){
+                    System.out.println("It may take a while to generate this file.");
+                }
 
                 //Create a new file, defining nodes and their relative distances
-                FileUtils.genNewNodeFile(sc.nextInt(), 100);
+                FileUtils.genNewNodeFile(nodes, 100);
             }
 
             //Running brute force

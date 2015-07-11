@@ -328,7 +328,7 @@ public class Graph {
             testTotalProb += d;
         }
         if (testTotalProb != totalProb) {
-            System.out.println("Why?");
+//            System.out.println("Why?");
             totalProb = testTotalProb;
         }
 

@@ -1,7 +1,6 @@
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import static java.util.stream.Collectors.joining;
 
 /**
  *
@@ -33,7 +32,7 @@ public class Tour {
 
         String out = "";
         for (Node i : nodesInTour) {
-            out += out.isEmpty() ? i.getName() : "," + i.getName();
+            out += out.isEmpty() ? i.getName() : "->" + i.getName();
         }
         out += ": " + tourDistance;
 
